@@ -5,6 +5,7 @@ import cookieParser from "cookie-parser";
 import { Shopify, LATEST_API_VERSION } from "@shopify/shopify-api";
 import "dotenv/config";
 
+
 import applyAuthMiddleware from "./middleware/auth.js";
 import verifyRequest from "./middleware/verify-request.js";
 
@@ -61,6 +62,7 @@ export async function createServer(
     }
   });
 
+
   app.get("/products-count", verifyRequest(app), async (req, res) => {
     const session = await Shopify.Utils.loadCurrentSession(
       req,
@@ -70,7 +72,7 @@ export async function createServer(
     const { Product } = await import(
       `@shopify/shopify-api/dist/rest-resources/${Shopify.Context.API_VERSION}/index.js`
     );
-
+    console.log("access token==>>", session.accessToken);
     const countData = await Product.count({ session });
     res.status(200).send(countData);
   });
@@ -84,6 +86,11 @@ export async function createServer(
     }
   });
 
+  //my routes
+  app.get("/test", (req, res, next) => {
+    
+   return res.json({a:1,b:2});
+  });
   app.use(express.json());
 
   app.use((req, res, next) => {
@@ -98,6 +105,8 @@ export async function createServer(
     }
     next();
   });
+
+
 
   app.use("/*", (req, res, next) => {
     const { shop } = req.query;
@@ -156,5 +165,9 @@ export async function createServer(
 }
 
 if (!isTest) {
-  createServer().then(({ app }) => app.listen(PORT));
+  createServer().then(({ app }) => {
+    app.listen(PORT);
+    console.log(`App listening on port ${process.env.PORT}! http://localhost:${PORT}`);
+
+  });
 }
