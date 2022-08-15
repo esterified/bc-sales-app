@@ -49,6 +49,7 @@ export async function createServer(
   app.set("top-level-oauth-cookie", TOP_LEVEL_OAUTH_COOKIE);
   app.set("active-shopify-shops", ACTIVE_SHOPIFY_SHOPS);
   app.set("use-online-tokens", USE_ONLINE_TOKENS);
+  app.set("shopify-shop", process.env.SHOP);
 
   app.use(cookieParser(Shopify.Context.API_SECRET_KEY));
 
@@ -92,21 +93,19 @@ export async function createServer(
 
   //my routes
   app.get("/payment", async (req, res, next) => {
-    const session = await Shopify.Utils.loadCurrentSession(
-      req,
-      res,
-      app.get("use-online-tokens")
-    ); 
+    const session = await Shopify.Utils.loadOfflineSession(app.get('shopify-shop')); 
     const accessToken=session?.accessToken;
     const shop=session?.shop;
-    if(!accessToken) return res.send('Access token not found');
-    if(!shop) return res.send('Shop not found');
+    console.log("accessToken",session);
+    if(!shop) return res.json('Shop not found');
+    if(!accessToken) return res.json('Access token not found');
     
     
      let checkoutData;
      try {
+      // https://deposit.us.shopifycs.com/sessions
       let response = await axios.request({
-        url: `https://${shop}/admin/api/2022-07/checkouts/.json`,
+        url: `https://${shop}/admin/api/2022-07/checkouts/7391eb99af482780c1d9c6268cd8d0d1.json`,
         method: "GET",
         headers: {
           "Content-Type": "application/json",
@@ -116,12 +115,39 @@ export async function createServer(
       })
       checkoutData = response?.data;
      } catch (error) {
-        console.log("Fetch error",error);
+        console.log(error,"Fetch error");
+        return res.json(error);
      }
-
-     console.log(checkoutData);
+     const paynmentUrl=checkoutData?.checkout?.payment_url;
+     console.log("checkout URL-->>",paynmentUrl);
      
-    return res.json({checkoutData});
+     let vaultResponse;
+     try {
+      let response = await axios.request({
+        url: paynmentUrl,
+        method: "POST",
+        headers: {
+         "X-Shopify-Access-Token": accessToken,
+         "Content-Type": "application/json" 
+        },
+        data: {
+         "credit_card": {
+           "number": "1",
+           "first_name": "John",
+           "last_name": "Smith",
+           "month": "5",
+           "year": "15",
+           "verification_value": "123"
+         }
+       },
+      });
+      vaultResponse = response?.data;
+     } catch (error) {
+      console.log("payment vault error",error);
+
+     }
+     console.log("vaultID-->>",vaultResponse);
+    return res.json(vaultResponse);
   });
 
 
@@ -144,13 +170,15 @@ export async function createServer(
 
   app.use("/*", (req, res, next) => {
     const { shop } = req.query;
-
+    
     // Detect whether we need to reinstall the app, any request from Shopify will
     // include a shop in the query parameters.
     if (app.get("active-shopify-shops")[shop] === undefined && shop) {
+      console.log('---------undeifned',200);
       res.redirect(`/auth?${new URLSearchParams(req.query).toString()}`);
     } else {
-      next();
+      console.log('---------',200);
+      return next();
     }
   });
 
@@ -201,7 +229,7 @@ export async function createServer(
 if (!isTest) {
   createServer().then(({ app }) => {
     app.listen(PORT);
-    console.log(`App listening on port ${process.env.PORT}! http://localhost:${PORT}`);
+    console.log(`App listening on port ${process.env.PORT}! http://localhost:${PORT}?shop=${process.env.SHOP}`);
 
   });
 }
