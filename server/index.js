@@ -4,12 +4,14 @@ import express from "express";
 import cookieParser from "cookie-parser";
 import { Shopify, LATEST_API_VERSION } from "@shopify/shopify-api";
 import "dotenv/config";
+import {Checkout} from '@shopify/shopify-api/dist/rest-resources/2022-07/index.js';
+import axios from 'axios';
 
 
 import applyAuthMiddleware from "./middleware/auth.js";
 import verifyRequest from "./middleware/verify-request.js";
 
-const USE_ONLINE_TOKENS = true;
+const USE_ONLINE_TOKENS = false;
 const TOP_LEVEL_OAUTH_COOKIE = "shopify_top_level_oauth";
 
 const PORT = parseInt(process.env.PORT || "8081", 10);
@@ -23,7 +25,9 @@ Shopify.Context.initialize({
   API_VERSION: LATEST_API_VERSION,
   IS_EMBEDDED_APP: true,
   // This should be replaced with your preferred storage strategy
-  SESSION_STORAGE: new Shopify.Session.MemorySessionStorage(),
+  // @ts-ignore
+  // SESSION_STORAGE: new Shopify.Session.MemorySessionStorage(),
+  SESSION_STORAGE: new Shopify.Session.MongoDBSessionStorage('mongodb+srv://fayed:Fayed1589@cluster0.at7drqh.mongodb.net/?retryWrites=true&w=majority','test'),
 });
 
 // Storing the currently active shops in memory will force them to re-login when your server restarts. You should
@@ -87,10 +91,40 @@ export async function createServer(
   });
 
   //my routes
-  app.get("/test", (req, res, next) => {
+  app.get("/payment", async (req, res, next) => {
+    const session = await Shopify.Utils.loadCurrentSession(
+      req,
+      res,
+      app.get("use-online-tokens")
+    ); 
+    const accessToken=session?.accessToken;
+    const shop=session?.shop;
+    if(!accessToken) return res.send('Access token not found');
+    if(!shop) return res.send('Shop not found');
     
-   return res.json({a:1,b:2});
+    
+     let checkoutData;
+     try {
+      let response = await axios.request({
+        url: `https://${shop}/admin/api/2022-07/checkouts/.json`,
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+          "X-Shopify-Access-Token": accessToken,
+          // "Retry-After": "1" 
+         },
+      })
+      checkoutData = response?.data;
+     } catch (error) {
+        console.log("Fetch error",error);
+     }
+
+     console.log(checkoutData);
+     
+    return res.json({checkoutData});
   });
+
+
   app.use(express.json());
 
   app.use((req, res, next) => {
