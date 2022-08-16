@@ -6,6 +6,7 @@ import { Shopify, LATEST_API_VERSION } from "@shopify/shopify-api";
 import "dotenv/config";
 import {Checkout} from '@shopify/shopify-api/dist/rest-resources/2022-07/index.js';
 import axios from 'axios';
+import { getShopifySessions } from "./helpers/get-shopify-access-token-manual.js";
 
 
 import applyAuthMiddleware from "./middleware/auth.js";
@@ -13,6 +14,7 @@ import verifyRequest from "./middleware/verify-request.js";
 
 const USE_ONLINE_TOKENS = false;
 const TOP_LEVEL_OAUTH_COOKIE = "shopify_top_level_oauth";
+const SHOPIFY_SHOP = process.env.SHOP;
 
 const PORT = parseInt(process.env.PORT || "8081", 10);
 const isTest = process.env.NODE_ENV === "test" || !!process.env.VITE_TEST_BUILD;
@@ -27,7 +29,7 @@ Shopify.Context.initialize({
   // This should be replaced with your preferred storage strategy
   // @ts-ignore
   // SESSION_STORAGE: new Shopify.Session.MemorySessionStorage(),
-  SESSION_STORAGE: new Shopify.Session.MongoDBSessionStorage('mongodb+srv://fayed:Fayed1589@cluster0.at7drqh.mongodb.net/?retryWrites=true&w=majority','test'),
+  SESSION_STORAGE: new Shopify.Session.MongoDBSessionStorage(process.env.MONGO_URL,process.env.MONGO_DB),
 });
 
 // Storing the currently active shops in memory will force them to re-login when your server restarts. You should
@@ -77,7 +79,7 @@ export async function createServer(
     const { Product } = await import(
       `@shopify/shopify-api/dist/rest-resources/${Shopify.Context.API_VERSION}/index.js`
     );
-    console.log("access token==>>", session.accessToken);
+    console.log("access token==>>", session.accessToken );
     const countData = await Product.count({ session });
     res.status(200).send(countData);
   });
@@ -93,19 +95,28 @@ export async function createServer(
 
   //my routes
   app.get("/payment", async (req, res, next) => {
+    // const sessionsManualToken = await getShopifySessions()
+    //   .then( (a) => {
+    //     return  a.find({shop: process.env.SHOP}).toArray();
+    //   })
+    //   .catch((err) => console.error(err, "DB connecttion error"));
+    // console.log("sessionsManualToken==>>", sessionsManualToken[0].accessToken);
+    const { checkoutId } = req.query;
+    if(!checkoutId) return res.status(403).json('Checkout ID not found');
     const session = await Shopify.Utils.loadOfflineSession(app.get('shopify-shop')); 
     const accessToken=session?.accessToken;
     const shop=session?.shop;
-    console.log("accessToken",session);
-    if(!shop) return res.json('Shop not found');
-    if(!accessToken) return res.json('Access token not found');
+    // console.log("accessToken",session);
+    if(!shop) return res.status(403).json('Shop not found');
+    if(!accessToken) return res.status(403).json('Access token not found');
     
     
      let checkoutData;
      try {
+      //checkout 6c7d4c9bc474331f7bf2bd4f0954f03f
       // https://deposit.us.shopifycs.com/sessions
       let response = await axios.request({
-        url: `https://${shop}/admin/api/2022-07/checkouts/7391eb99af482780c1d9c6268cd8d0d1.json`,
+        url: `https://${shop}/admin/api/2022-07/checkouts/${checkoutId}.json`,
         method: "GET",
         headers: {
           "Content-Type": "application/json",
@@ -119,7 +130,7 @@ export async function createServer(
         return res.json(error);
      }
      const paynmentUrl=checkoutData?.checkout?.payment_url;
-     console.log("checkout URL-->>",paynmentUrl);
+     console.log("checkout paynmentUrl-->>",paynmentUrl);
      
      let vaultResponse;
      try {
@@ -147,7 +158,7 @@ export async function createServer(
 
      }
      console.log("vaultID-->>",vaultResponse);
-    return res.json(vaultResponse);
+    return res.json({vaultResponse,checkoutData});
   });
 
 
@@ -174,7 +185,7 @@ export async function createServer(
     // Detect whether we need to reinstall the app, any request from Shopify will
     // include a shop in the query parameters.
     if (app.get("active-shopify-shops")[shop] === undefined && shop) {
-      console.log('---------undeifned',200);
+      console.log('------active-shopify-shops----- not found',200);
       res.redirect(`/auth?${new URLSearchParams(req.query).toString()}`);
     } else {
       console.log('---------',200);
