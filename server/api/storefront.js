@@ -60,6 +60,36 @@ export const createCheckout = async(shop,token,variables)=>{
         url: storefrontUrl(shop),
         headers: storeFrontHeader(token),
         data: {
+          query: `mutation test($CheckoutCreateInput: CheckoutCreateInput!) {
+            checkoutCreate(input: $CheckoutCreateInput) {
+              checkout {
+                 id
+                 webUrl
+                 totalPriceV2{
+                    amount
+                    currencyCode
+                 }
+                 lineItems(first: 5) {
+                   edges {
+                     node {
+                       title
+                       quantity
+                     }
+                   }
+                 }
+              }
+            }
+          }`,
+          variables: variables,
+        }
+      }).then(re=>re.data);
+}
+export const completeCheckoutWithCreditCard = async(shop,token,variables)=>{
+    return await axios({
+        method: 'POST',
+        url: storefrontUrl(shop),
+        headers: storeFrontHeader(token),
+        data: {
           query: `mutation checkoutCompleteWithCreditCardV2($checkoutId: ID!, $payment: CreditCardPaymentInputV2!) {
             checkoutCompleteWithCreditCardV2(checkoutId: $checkoutId, payment: $payment) {
               checkout {

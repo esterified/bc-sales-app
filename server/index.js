@@ -116,7 +116,6 @@ export async function createServer(
       console.log("Error",err);
     }
     return res.json({fetchedData});
-    res.status(200).send(countData);
 
 
   });
