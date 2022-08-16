@@ -110,7 +110,7 @@ export async function createServer(
     try{
       // "gid://shopify/Checkout/3f827cfc493a136d3a88bc251a50e9a3?key=cfc58e6cece1885a04ec92d6adaefbf3"
       fetchedData = await StorefrontApi.getCheckout(shop,app.get('storefront-api-token'),{
-         checkoutId: "d3a88bc251a50e9a3?key=cfc58e6cece1885a04ec92d6adaefbf3"
+         checkoutId: "gid://shopify/Checkout/3f827cfc493a136d3a88bc251a50e9a3?key=cfc58e6cece1885a04ec92d6adaefbf3"
       })
     }catch(err){
       console.log("Error",err);
