@@ -64,6 +64,7 @@ export function ProductsCard() {
             primary
             loading={loading}
             onClick={() => {
+              return;
               Promise.all(
                 Array.from({ length: 5 }).map(() =>
                   populateProduct({

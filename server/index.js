@@ -4,9 +4,10 @@ import express from "express";
 import cookieParser from "cookie-parser";
 import { Shopify, LATEST_API_VERSION } from "@shopify/shopify-api";
 import "dotenv/config";
-import {Checkout} from '@shopify/shopify-api/dist/rest-resources/2022-07/index.js';
+// import {Checkout} from '@shopify/shopify-api/dist/rest-resources/2022-07/index.js';
 import axios from 'axios';
 import { getShopifySessions } from "./helpers/get-shopify-access-token-manual.js";
+import * as StorefrontApi from "./api/storefront.js";
 
 
 import applyAuthMiddleware from "./middleware/auth.js";
@@ -27,7 +28,7 @@ Shopify.Context.initialize({
   API_VERSION: LATEST_API_VERSION,
   IS_EMBEDDED_APP: true,
   // This should be replaced with your preferred storage strategy
-  // @ts-ignore
+
   // SESSION_STORAGE: new Shopify.Session.MemorySessionStorage(),
   SESSION_STORAGE: new Shopify.Session.MongoDBSessionStorage(process.env.MONGO_URL,process.env.MONGO_DB),
 });
@@ -48,10 +49,12 @@ export async function createServer(
   isProd = process.env.NODE_ENV === "production"
 ) {
   const app = express();
+  console.log("ACTIVE_SHOPIFY_SHOPS",ACTIVE_SHOPIFY_SHOPS)
   app.set("top-level-oauth-cookie", TOP_LEVEL_OAUTH_COOKIE);
   app.set("active-shopify-shops", ACTIVE_SHOPIFY_SHOPS);
   app.set("use-online-tokens", USE_ONLINE_TOKENS);
   app.set("shopify-shop", process.env.SHOP);
+  app.set("storefront-api-token", process.env.SHOPIFY_STOREFRONT_TOKEN);
 
   app.use(cookieParser(Shopify.Context.API_SECRET_KEY));
 
@@ -94,6 +97,29 @@ export async function createServer(
   });
 
   //my routes
+  app.get("/test", async (req, res, next) => {
+
+    //graphql axios request
+    console.log('SHOP',app.get('shopify-shop'))
+    const session = await Shopify.Utils.loadOfflineSession(app.get('shopify-shop'),true); 
+    const accessToken=session?.accessToken;
+    const shop=session?.shop;
+    if(!shop) return res.status(403).json('Shop not found');
+    if(!accessToken) return res.status(403).json('Access token not found');
+    let fetchedData;
+    try{
+      // "gid://shopify/Checkout/3f827cfc493a136d3a88bc251a50e9a3?key=cfc58e6cece1885a04ec92d6adaefbf3"
+      fetchedData = await StorefrontApi.getCheckout(shop,app.get('storefront-api-token'),{
+         checkoutId: "d3a88bc251a50e9a3?key=cfc58e6cece1885a04ec92d6adaefbf3"
+      })
+    }catch(err){
+      console.log("Error",err);
+    }
+    return res.json({fetchedData});
+    res.status(200).send(countData);
+
+
+  });
   app.get("/payment", async (req, res, next) => {
     // const sessionsManualToken = await getShopifySessions()
     //   .then( (a) => {
@@ -101,11 +127,11 @@ export async function createServer(
     //   })
     //   .catch((err) => console.error(err, "DB connecttion error"));
     // console.log("sessionsManualToken==>>", sessionsManualToken[0].accessToken);
-    const { checkoutId } = req.query;
-    if(!checkoutId) return res.status(403).json('Checkout ID not found');
     const session = await Shopify.Utils.loadOfflineSession(app.get('shopify-shop')); 
     const accessToken=session?.accessToken;
     const shop=session?.shop;
+    const { checkoutId } = req.query;
+    if(!checkoutId) return res.status(403).json('Checkout ID not found');
     // console.log("accessToken",session);
     if(!shop) return res.status(403).json('Shop not found');
     if(!accessToken) return res.status(403).json('Access token not found');
@@ -115,7 +141,7 @@ export async function createServer(
      try {
       //checkout 6c7d4c9bc474331f7bf2bd4f0954f03f
       // https://deposit.us.shopifycs.com/sessions
-      let response = await axios.request({
+      let response = await axios({
         url: `https://${shop}/admin/api/2022-07/checkouts/${checkoutId}.json`,
         method: "GET",
         headers: {
@@ -134,7 +160,7 @@ export async function createServer(
      
      let vaultResponse;
      try {
-      let response = await axios.request({
+      let response = await axios({
         url: paynmentUrl,
         method: "POST",
         headers: {
@@ -184,11 +210,15 @@ export async function createServer(
     
     // Detect whether we need to reinstall the app, any request from Shopify will
     // include a shop in the query parameters.
+    const redirectURL=`/auth?${new URLSearchParams(req.query).toString()}`;
     if (app.get("active-shopify-shops")[shop] === undefined && shop) {
-      console.log('------active-shopify-shops----- not found',200);
-      res.redirect(`/auth?${new URLSearchParams(req.query).toString()}`);
+      if(shop!==app.get('shopify-shop')){
+        return res.status(403).json('Shop not found');
+      }
+      console.log('------active-shopify-shops-------->>'+redirectURL);
+      return res.redirect(redirectURL);
     } else {
-      console.log('---------',200);
+      console.log('---------',redirectURL);
       return next();
     }
   });
@@ -240,7 +270,7 @@ export async function createServer(
 if (!isTest) {
   createServer().then(({ app }) => {
     app.listen(PORT);
-    console.log(`App listening on port ${process.env.PORT}! http://localhost:${PORT}?shop=${process.env.SHOP}`);
+    console.log(`App listening on port ${process.env.PORT}! http://localhost:${PORT}/auth?shop=${process.env.SHOP}`);
 
   });
 }
