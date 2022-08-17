@@ -1,4 +1,4 @@
-// @ts-check
+// @ts-nocheck
 import { resolve } from "path";
 import express from "express";
 import cookieParser from "cookie-parser";
@@ -110,7 +110,7 @@ export async function createServer(
     try{
       // "gid://shopify/Checkout/3f827cfc493a136d3a88bc251a50e9a3?key=cfc58e6cece1885a04ec92d6adaefbf3"
       fetchedData = await StorefrontApi.getCheckout(shop,app.get('storefront-api-token'),{
-         checkoutId: "gid://shopify/Checkout/3f827cfc493a136d3a88bc251a50e9a3?key=cfc58e6cece1885a04ec92d6adaefbf3"
+         checkoutId: "Z2lkOi8vc2hvcGlmeS9DaGVja291dC82MDJiNzE3NjYzMjU0OTA5NzdiMjQ5NTZmY2EyMTk0MT9rZXk9ODBkMzM5YWM1ZjI3NTNkNzAwNmEyMjY1Yjk5YTkyY2E="
       })
     }catch(err){
       console.log("Error",err);
@@ -135,13 +135,39 @@ export async function createServer(
     if(!shop) return res.status(403).json('Shop not found');
     if(!accessToken) return res.status(403).json('Access token not found');
     
-    
+    const testShippinginfo={
+      "lastName": "Fayed",
+      "firstName": "Devteam",
+      "address1": "9900 McNeil Drive",
+      "address2": "",
+      "city": "Austin",
+      "province": "Texas",
+      "country": "United States",
+      "zip": "78750",
+      "phone": "(512) 954-2355",
+    };
+    const TEST_DATA=[
+      {
+        email: "fake@achilles.com",
+        lineItems: [{ variantId: "gid://shopify/ProductVariant/43493402902761", quantity: 1, customAttributes: [{key:'_locationId',value:'66727706857'}] }],
+        shippingAddress: testShippinginfo,
+      },
+      {
+        email: "fake@achilles.com",
+        lineItems: [{ variantId: "gid://shopify/ProductVariant/43493402902761", quantity: 4}],
+        shippingAddress: testShippinginfo,
+      }
+    ]
+    //  const checkoutCreated = await StorefrontApi.createCheckout(shop,app.get('storefront-api-token'),{
+    //     CheckoutCreateInput: TEST_DATA[0],
+    //  })
+    //  return res.json({checkoutCreated});
      let checkoutData;
      try {
       //checkout 6c7d4c9bc474331f7bf2bd4f0954f03f
       // https://deposit.us.shopifycs.com/sessions
       let response = await axios({
-        url: `https://${shop}/admin/api/2022-07/checkouts/${checkoutId}.json`,
+        url: `https://${shop}/admin/api/2022-07/checkouts/602b71766325490977b24956fca21941.json`,
         method: "GET",
         headers: {
           "Content-Type": "application/json",
@@ -168,12 +194,14 @@ export async function createServer(
         },
         data: {
          "credit_card": {
-           "number": "1",
-           "first_name": "John",
-           "last_name": "Smith",
-           "month": "5",
-           "year": "15",
-           "verification_value": "123"
+          "first_name": "Adnan",
+          "last_name": "Somani",
+          "first_digits": "453641",
+          "last_digits": "9990",
+          "brand": "visa",
+          "expiry_month": 8,
+          "expiry_year": 2028,
+          "verification_value":"784",
          }
        },
       });
@@ -183,7 +211,27 @@ export async function createServer(
 
      }
      console.log("vaultID-->>",vaultResponse);
-    return res.json({vaultResponse,checkoutData});
+      let completeResponse= await StorefrontApi.completeCheckoutWithCreditCard(shop,app.get('storefront-api-token'),{
+      "checkoutId": checkoutId,
+      "payment": {
+        "paymentAmount": {
+          "amount": "0.01",
+          "currencyCode": "CAD"
+        },
+        "idempotencyKey": "784",
+        "billingAddress": {
+          "firstName": "Adnan",
+          "lastName": "Somani",
+          "address1": "9900 McNeil Drive",
+          "city": "Austin",
+          "province": "Texas",
+          "country": "United States",
+          "zip": "78750",
+        },
+        "vaultId": vaultResponse?.id
+      }
+     })
+    return res.json({completeResponse,vaultResponse,checkoutData});
   });
 
 
@@ -217,8 +265,9 @@ export async function createServer(
       console.log('------active-shopify-shops-------->>'+redirectURL);
       return res.redirect(redirectURL);
     } else {
-      console.log('---------',redirectURL);
+      console.log('----',req.path,'-----',redirectURL);
       return next();
+      // return res.sendStatus(404);
     }
   });
 
