@@ -5,11 +5,10 @@ import cookieParser from "cookie-parser";
 import { Shopify, LATEST_API_VERSION } from "@shopify/shopify-api";
 import "dotenv/config";
 // import {Checkout} from '@shopify/shopify-api/dist/rest-resources/2022-07/index.js';
-import axios from 'axios';
+import axios from "axios";
 import { getShopifySessions } from "./helpers/get-shopify-access-token-manual.js";
 import * as StorefrontApi from "./api/storefront.js";
 import * as AdminRestApi from "./api/admin-rest.js";
-
 
 import applyAuthMiddleware from "./middleware/auth.js";
 import verifyRequest from "./middleware/verify-request.js";
@@ -31,7 +30,10 @@ Shopify.Context.initialize({
   // This should be replaced with your preferred storage strategy
 
   // SESSION_STORAGE: new Shopify.Session.MemorySessionStorage(),
-  SESSION_STORAGE: new Shopify.Session.MongoDBSessionStorage(process.env.MONGO_URL,process.env.MONGO_DB),
+  SESSION_STORAGE: new Shopify.Session.MongoDBSessionStorage(
+    process.env.MONGO_URL,
+    process.env.MONGO_DB
+  ),
 });
 
 // Storing the currently active shops in memory will force them to re-login when your server restarts. You should
@@ -50,7 +52,7 @@ export async function createServer(
   isProd = process.env.NODE_ENV === "production"
 ) {
   const app = express();
-  console.log("ACTIVE_SHOPIFY_SHOPS",ACTIVE_SHOPIFY_SHOPS)
+  console.log("ACTIVE_SHOPIFY_SHOPS", ACTIVE_SHOPIFY_SHOPS);
   app.set("top-level-oauth-cookie", TOP_LEVEL_OAUTH_COOKIE);
   app.set("active-shopify-shops", ACTIVE_SHOPIFY_SHOPS);
   app.set("use-online-tokens", USE_ONLINE_TOKENS);
@@ -73,7 +75,6 @@ export async function createServer(
     }
   });
 
-
   app.get("/products-count", verifyRequest(app), async (req, res) => {
     const session = await Shopify.Utils.loadCurrentSession(
       req,
@@ -83,7 +84,7 @@ export async function createServer(
     const { Product } = await import(
       `@shopify/shopify-api/dist/rest-resources/${Shopify.Context.API_VERSION}/index.js`
     );
-    console.log("access token==>>", session.accessToken );
+    console.log("access token==>>", session.accessToken);
     const countData = await Product.count({ session });
     res.status(200).send(countData);
   });
@@ -99,65 +100,114 @@ export async function createServer(
 
   //my routes
   app.get("/test", async (req, res, next) => {
-
     //graphql axios request
-    console.log('SHOP',app.get('shopify-shop'))
-    const session = await Shopify.Utils.loadOfflineSession(app.get('shopify-shop'),true); 
-    const accessToken=session?.accessToken;
-    const shop=session?.shop;
-    if(!shop) return res.status(403).json('Shop not found');
-    if(!accessToken) return res.status(403).json('Access token not found');
+    console.log("SHOP", app.get("shopify-shop"));
+    const session = await Shopify.Utils.loadOfflineSession(
+      app.get("shopify-shop"),
+      true
+    );
+    const accessToken = session?.accessToken;
+    const shop = session?.shop;
+    if (!shop) return res.status(403).json("Shop not found");
+    if (!accessToken) return res.status(403).json("Access token not found");
     let fetchedData;
-    try{
+    try {
       // "gid://shopify/Checkout/3f827cfc493a136d3a88bc251a50e9a3?key=cfc58e6cece1885a04ec92d6adaefbf3"
-      fetchedData = await StorefrontApi.getCheckout(shop,app.get('storefront-api-token'),{
-         checkoutId: "Z2lkOi8vc2hvcGlmeS9DaGVja291dC82MDJiNzE3NjYzMjU0OTA5NzdiMjQ5NTZmY2EyMTk0MT9rZXk9ODBkMzM5YWM1ZjI3NTNkNzAwNmEyMjY1Yjk5YTkyY2E="
-      })
-    }catch(err){
-      console.log("Error",err);
+      fetchedData = await StorefrontApi.getCheckout(
+        shop,
+        app.get("storefront-api-token"),
+        {
+          checkoutId:
+            "Z2lkOi8vc2hvcGlmeS9DaGVja291dC82MDJiNzE3NjYzMjU0OTA5NzdiMjQ5NTZmY2EyMTk0MT9rZXk9ODBkMzM5YWM1ZjI3NTNkNzAwNmEyMjY1Yjk5YTkyY2E=",
+        }
+      );
+    } catch (err) {
+      console.log("Error", err);
     }
-    return res.json({fetchedData});
-
-
+    return res.json({ fetchedData });
   });
   app.get("/payment/rest", async (req, res, next) => {
-    const session = await Shopify.Utils.loadOfflineSession(app.get('shopify-shop')); 
-    const accessToken=session?.accessToken;
-    const shop=session?.shop;
-    const { checkoutId } = req.query;
+    const session = await Shopify.Utils.loadOfflineSession(
+      app.get("shopify-shop")
+    );
+    const accessToken = session?.accessToken;
+    const shop = session?.shop;
+    // const { checkoutId } = req.query;
     // if(!checkoutId) return res.status(403).json('Checkout ID not found');
     // console.log("accessToken",session);
-    if(!shop) return res.status(403).json('Shop not found');
-    if(!accessToken) return res.status(403).json('Access token not found');
+    if (!shop) return res.status(403).json("Shop not found");
+    if (!accessToken) return res.status(403).json("Access token not found");
 
-    const testShippinginfo={
-      "last_name": "Fayed",
-      "first_name": "Devteam",
-      "address1": "9900 McNeil Drive",
-      "address2": "",
-      "city": "Austin",
-      "province": "Texas",
-      "country": "United States",
-      "zip": "78750",
-      "phone": "(512) 954-2355",
+    const testShippinginfo = {
+      last_name: "Fayed",
+      first_name: "Devteam",
+      address1: "9900 McNeil Drive",
+      address2: "",
+      city: "Austin",
+      province: "Texas",
+      country: "United States",
+      zip: "78750",
+      phone: "(512) 954-2355",
+    };
+    const testBillinginfo = {
+      last_name: "Adnan",
+      first_name: "Somani",
+      address1: "9900 McNeil Drive",
+      city: "Austin",
+      province: "Texas",
+      country: "United States",
+      zip: "78750",
+    };
+    const testCheckoutCreateData = {
+      line_items: [{ variant_id: 43493402902761, quantity: 2 }],
+      email: "development@aivalabs.com",
+      shipping_address: testShippinginfo,
+      billing_address: testBillinginfo,
+    };
+    const creditCardDetails = {
+      credit_card: {
+        first_name: "Adnan",
+        last_name: "Somani",
+        first_digits: "453641",
+        last_digits: "9990",
+        brand: "visa",
+        expiry_month: 8,
+        expiry_year: 2028,
+        verification_value: "784",
+      },
     };
     const createdCheckout = await AdminRestApi.createCheckout(
       shop,
       accessToken,
       {
-        checkout: {
-          line_items: [{ variant_id: 43493402902761, quantity: 2 }],
-          email: "fake@achilles.com",
-          shipping_address: testShippinginfo,
-        },
+        checkout: testCheckoutCreateData,
       }
     );
-    return res.json({
-      createdCheckout
-    })
-    
+    const checkoutId = createdCheckout?.token;
+    const paymentUrl = createdCheckout?.payment_url;
+    if (!checkoutId)
+      return res.json({
+        createdCheckout,
+      });
+    // const completeCheckout = await AdminRestApi.completeCheckout(shop,accessToken,createdCheckout?.token);
+    const vaultSession = await AdminRestApi.createVaultSession(
+      accessToken,
+      paymentUrl,
+      creditCardDetails
+    );
 
+    const vaultId = vaultSession?.id;
+
+    const checkoutData= await AdminRestApi.getCheckout(shop,accessToken,checkoutId);
+
+    return res.json({
+      vaultSession,
+      createdCheckout,
+      checkoutData,
+    });
   });
+
+  //STorefront API graphql checkout create and payments
   app.get("/payment", async (req, res, next) => {
     // const sessionsManualToken = await getShopifySessions()
     //   .then( (a) => {
@@ -165,44 +215,57 @@ export async function createServer(
     //   })
     //   .catch((err) => console.error(err, "DB connecttion error"));
     // console.log("sessionsManualToken==>>", sessionsManualToken[0].accessToken);
-    const session = await Shopify.Utils.loadOfflineSession(app.get('shopify-shop')); 
-    const accessToken=session?.accessToken;
-    const shop=session?.shop;
+    const session = await Shopify.Utils.loadOfflineSession(
+      app.get("shopify-shop")
+    );
+    const accessToken = session?.accessToken;
+    const shop = session?.shop;
     const { checkoutId } = req.query;
-    if(!checkoutId) return res.status(403).json('Checkout ID not found');
+    if (!checkoutId) return res.status(403).json("Checkout ID not found");
     // console.log("accessToken",session);
-    if(!shop) return res.status(403).json('Shop not found');
-    if(!accessToken) return res.status(403).json('Access token not found');
-    
-    const testShippinginfo={
-      "lastName": "Fayed",
-      "firstName": "Devteam",
-      "address1": "9900 McNeil Drive",
-      "address2": "",
-      "city": "Austin",
-      "province": "Texas",
-      "country": "United States",
-      "zip": "78750",
-      "phone": "(512) 954-2355",
+    if (!shop) return res.status(403).json("Shop not found");
+    if (!accessToken) return res.status(403).json("Access token not found");
+
+    const testShippinginfo = {
+      lastName: "Fayed",
+      firstName: "Devteam",
+      address1: "9900 McNeil Drive",
+      address2: "",
+      city: "Austin",
+      province: "Texas",
+      country: "United States",
+      zip: "78750",
+      phone: "(512) 954-2355",
     };
-    const TEST_DATA=[
+    const TEST_DATA = [
       {
         email: "fake@achilles.com",
-        lineItems: [{ variantId: "gid://shopify/ProductVariant/43493402902761", quantity: 2, customAttributes: [{key:'_locationId',value:'66727706857'}] }],
+        lineItems: [
+          {
+            variantId: "gid://shopify/ProductVariant/43493402902761",
+            quantity: 2,
+            customAttributes: [{ key: "_locationId", value: "66727706857" }],
+          },
+        ],
         shippingAddress: testShippinginfo,
       },
       {
         email: "fake@achilles.com",
-        lineItems: [{ variantId: "gid://shopify/ProductVariant/43493402902761", quantity: 4}],
+        lineItems: [
+          {
+            variantId: "gid://shopify/ProductVariant/43493402902761",
+            quantity: 4,
+          },
+        ],
         shippingAddress: testShippinginfo,
-      }
-    ]
+      },
+    ];
     //  const checkoutCreated = await StorefrontApi.createCheckout(shop,app.get('storefront-api-token'),{
     //     CheckoutCreateInput: TEST_DATA[0],
     //  })
     //  return res.json({checkoutCreated});
-     let checkoutData;
-     try {
+    let checkoutData;
+    try {
       //checkout 6c7d4c9bc474331f7bf2bd4f0954f03f
       // https://deposit.us.shopifycs.com/sessions
       let response = await axios({
@@ -211,47 +274,39 @@ export async function createServer(
         headers: {
           "Content-Type": "application/json",
           "X-Shopify-Access-Token": accessToken,
-          // "Retry-After": "1" 
-         },
-      })
-      checkoutData = response?.data;
-     } catch (error) {
-        console.log(error,"Fetch error");
-        return res.json(error);
-     }
-     const paynmentUrl=checkoutData?.checkout?.payment_url;
-     console.log("checkout paynmentUrl-->>",paynmentUrl);
-     
-     let vaultResponse;
-     try {
-      let response = await axios({
-        url: paynmentUrl,
-        method: "POST",
-        headers: {
-         "X-Shopify-Access-Token": accessToken,
-         "Content-Type": "application/json" 
+          // "Retry-After": "1"
         },
-        data: {
-         "credit_card": {
-          "first_name": "Adnan",
-          "last_name": "Somani",
-          "first_digits": "453641",
-          "last_digits": "9990",
-          "brand": "visa",
-          "expiry_month": 8,
-          "expiry_year": 2028,
-          "verification_value":"784",
-         }
-       },
       });
-      vaultResponse = response?.data;
-     } catch (error) {
-      console.log("payment vault error",error);
+      checkoutData = response?.data;
+    } catch (error) {
+      console.log(error, "Fetch error");
+      return res.json(error);
+    }
+    const paynmentUrl = checkoutData?.checkout?.payment_url;
+    console.log("checkout paynmentUrl-->>", paynmentUrl);
 
-     }
-     console.log("vaultID-->>",vaultResponse);
-     let completeResponse = await StorefrontApi.completeFreeCheckout(shop,app.get('storefront-api-token'),
-     {"checkoutId": "Z2lkOi8vc2hvcGlmeS9DaGVja291dC8xNWRhMTk2NjFlYTg2NjFkODU5MTk0MzAyNDgyZTQ5Mj9rZXk9OTZiMGU4NDQ4N2QwMTlmNGNlOTY3ZGZhYTMwODQ2ODY="});
+    const vaultResponse = await AdminRestApi.createVaultSession(accessToken,paynmentUrl,{
+      credit_card: {
+        first_name: "Adnan",
+        last_name: "Somani",
+        first_digits: "453641",
+        last_digits: "9990",
+        brand: "visa",
+        expiry_month: 8,
+        expiry_year: 2028,
+        verification_value: "784",
+      }
+    });
+    
+    console.log("vaultID-->>", vaultResponse);
+    let completeResponse = await StorefrontApi.completeFreeCheckout(
+      shop,
+      app.get("storefront-api-token"),
+      {
+        checkoutId:
+          "Z2lkOi8vc2hvcGlmeS9DaGVja291dC8xNWRhMTk2NjFlYTg2NjFkODU5MTk0MzAyNDgyZTQ5Mj9rZXk9OTZiMGU4NDQ4N2QwMTlmNGNlOTY3ZGZhYTMwODQ2ODY=",
+      }
+    );
     //   let completeResponse= await StorefrontApi.completeCheckoutWithCreditCard(shop,app.get('storefront-api-token'),{
     //   "checkoutId": checkoutId,
     //   "payment": {
@@ -272,9 +327,8 @@ export async function createServer(
     //     "vaultId": vaultResponse?.id
     //   }
     //  })
-    return res.json({completeResponse,vaultResponse,checkoutData});
+    return res.json({ completeResponse, vaultResponse, checkoutData });
   });
-
 
   app.use(express.json());
 
@@ -291,22 +345,20 @@ export async function createServer(
     next();
   });
 
-
-
   app.use("/*", (req, res, next) => {
     const { shop } = req.query;
-    
+
     // Detect whether we need to reinstall the app, any request from Shopify will
     // include a shop in the query parameters.
-    const redirectURL=`/auth?${new URLSearchParams(req.query).toString()}`;
+    const redirectURL = `/auth?${new URLSearchParams(req.query).toString()}`;
     if (app.get("active-shopify-shops")[shop] === undefined && shop) {
-      if(shop!==app.get('shopify-shop')){
-        return res.status(403).json('Shop not found');
+      if (shop !== app.get("shopify-shop")) {
+        return res.status(403).json("Shop not found");
       }
-      console.log('------active-shopify-shops-------->>'+redirectURL);
+      console.log("------active-shopify-shops-------->>" + redirectURL);
       return res.redirect(redirectURL);
     } else {
-      console.log('----',req.path,'-----',redirectURL);
+      console.log("----", req.path, "-----", redirectURL);
       return next();
       // return res.sendStatus(404);
     }
@@ -359,7 +411,8 @@ export async function createServer(
 if (!isTest) {
   createServer().then(({ app }) => {
     app.listen(PORT);
-    console.log(`App listening on port ${process.env.PORT}! http://localhost:${PORT}/auth?shop=${process.env.SHOP}`);
-
+    console.log(
+      `App listening on port ${process.env.PORT}! http://localhost:${PORT}/auth?shop=${process.env.SHOP}`
+    );
   });
 }
