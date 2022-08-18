@@ -8,6 +8,7 @@ import "dotenv/config";
 import axios from 'axios';
 import { getShopifySessions } from "./helpers/get-shopify-access-token-manual.js";
 import * as StorefrontApi from "./api/storefront.js";
+import * as AdminRestApi from "./api/admin-rest.js";
 
 
 import applyAuthMiddleware from "./middleware/auth.js";
@@ -119,6 +120,44 @@ export async function createServer(
 
 
   });
+  app.get("/payment/rest", async (req, res, next) => {
+    const session = await Shopify.Utils.loadOfflineSession(app.get('shopify-shop')); 
+    const accessToken=session?.accessToken;
+    const shop=session?.shop;
+    const { checkoutId } = req.query;
+    // if(!checkoutId) return res.status(403).json('Checkout ID not found');
+    // console.log("accessToken",session);
+    if(!shop) return res.status(403).json('Shop not found');
+    if(!accessToken) return res.status(403).json('Access token not found');
+
+    const testShippinginfo={
+      "last_name": "Fayed",
+      "first_name": "Devteam",
+      "address1": "9900 McNeil Drive",
+      "address2": "",
+      "city": "Austin",
+      "province": "Texas",
+      "country": "United States",
+      "zip": "78750",
+      "phone": "(512) 954-2355",
+    };
+    const createdCheckout = await AdminRestApi.createCheckout(
+      shop,
+      accessToken,
+      {
+        checkout: {
+          line_items: [{ variant_id: 43493402902761, quantity: 2 }],
+          email: "fake@achilles.com",
+          shipping_address: testShippinginfo,
+        },
+      }
+    );
+    return res.json({
+      createdCheckout
+    })
+    
+
+  });
   app.get("/payment", async (req, res, next) => {
     // const sessionsManualToken = await getShopifySessions()
     //   .then( (a) => {
@@ -149,7 +188,7 @@ export async function createServer(
     const TEST_DATA=[
       {
         email: "fake@achilles.com",
-        lineItems: [{ variantId: "gid://shopify/ProductVariant/43493402902761", quantity: 1, customAttributes: [{key:'_locationId',value:'66727706857'}] }],
+        lineItems: [{ variantId: "gid://shopify/ProductVariant/43493402902761", quantity: 2, customAttributes: [{key:'_locationId',value:'66727706857'}] }],
         shippingAddress: testShippinginfo,
       },
       {
@@ -167,7 +206,7 @@ export async function createServer(
       //checkout 6c7d4c9bc474331f7bf2bd4f0954f03f
       // https://deposit.us.shopifycs.com/sessions
       let response = await axios({
-        url: `https://${shop}/admin/api/2022-07/checkouts/602b71766325490977b24956fca21941.json`,
+        url: `https://${shop}/admin/api/2022-07/checkouts/62c720ef21b1b57972c20b1e205197c2.json`,
         method: "GET",
         headers: {
           "Content-Type": "application/json",
@@ -211,26 +250,28 @@ export async function createServer(
 
      }
      console.log("vaultID-->>",vaultResponse);
-      let completeResponse= await StorefrontApi.completeCheckoutWithCreditCard(shop,app.get('storefront-api-token'),{
-      "checkoutId": checkoutId,
-      "payment": {
-        "paymentAmount": {
-          "amount": "0.01",
-          "currencyCode": "CAD"
-        },
-        "idempotencyKey": "784",
-        "billingAddress": {
-          "firstName": "Adnan",
-          "lastName": "Somani",
-          "address1": "9900 McNeil Drive",
-          "city": "Austin",
-          "province": "Texas",
-          "country": "United States",
-          "zip": "78750",
-        },
-        "vaultId": vaultResponse?.id
-      }
-     })
+     let completeResponse = await StorefrontApi.completeFreeCheckout(shop,app.get('storefront-api-token'),
+     {"checkoutId": "Z2lkOi8vc2hvcGlmeS9DaGVja291dC8xNWRhMTk2NjFlYTg2NjFkODU5MTk0MzAyNDgyZTQ5Mj9rZXk9OTZiMGU4NDQ4N2QwMTlmNGNlOTY3ZGZhYTMwODQ2ODY="});
+    //   let completeResponse= await StorefrontApi.completeCheckoutWithCreditCard(shop,app.get('storefront-api-token'),{
+    //   "checkoutId": checkoutId,
+    //   "payment": {
+    //     "paymentAmount": {
+    //       "amount": "0.01",
+    //       "currencyCode": "CAD"
+    //     },
+    //     "idempotencyKey": "784",
+    //     "billingAddress": {
+    //       "firstName": "Adnan",
+    //       "lastName": "Somani",
+    //       "address1": "9900 McNeil Drive",
+    //       "city": "Austin",
+    //       "province": "Texas",
+    //       "country": "United States",
+    //       "zip": "78750",
+    //     },
+    //     "vaultId": vaultResponse?.id
+    //   }
+    //  })
     return res.json({completeResponse,vaultResponse,checkoutData});
   });
 

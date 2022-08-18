@@ -110,3 +110,27 @@ export const completeCheckoutWithCreditCard = async(shop,token,variables)=>{
         }
       }).then(re=>re.data);
 }
+export const completeFreeCheckout = async(shop,token,variables)=>{
+    return await axios({
+        method: 'POST',
+        url: storefrontUrl(shop),
+        headers: storeFrontHeader(token),
+        data: {
+          query: `mutation checkoutCompleteFree($checkoutId: ID!) {
+            checkoutCompleteFree(checkoutId: $checkoutId) {
+              checkout {
+                id
+                webUrl
+              }
+              checkoutUserErrors {
+                code
+                field
+                message
+              }
+            }
+          }
+        `,
+        variables: variables
+        }
+      }).then(re=>re.data)
+}
