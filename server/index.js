@@ -9,7 +9,7 @@ import axios from "axios";
 import { getShopifySessions } from "./helpers/get-shopify-access-token-manual.js";
 import * as StorefrontApi from "./api/storefront.js";
 import * as AdminRestApi from "./api/admin-rest.js";
-
+import crypto from 'crypto';
 import applyAuthMiddleware from "./middleware/auth.js";
 import verifyRequest from "./middleware/verify-request.js";
 
@@ -126,23 +126,25 @@ export async function createServer(
     }
     return res.json({ fetchedData });
   });
+
+
+  ///Payment ADMIN REST API
   app.get("/payment/rest", async (req, res, next) => {
+    const randomKey=crypto.randomBytes(64).toString('hex');
     const session = await Shopify.Utils.loadOfflineSession(
       app.get("shopify-shop")
     );
     const accessToken = session?.accessToken;
     const shop = session?.shop;
-    // const { checkoutId } = req.query;
-    // if(!checkoutId) return res.status(403).json('Checkout ID not found');
-    // console.log("accessToken",session);
+    const { checkoutId } = req.query;
+    if(!checkoutId) return res.status(403).json('Checkout ID not found');
     if (!shop) return res.status(403).json("Shop not found");
     if (!accessToken) return res.status(403).json("Access token not found");
 
     const testShippinginfo = {
-      last_name: "Fayed",
       first_name: "Devteam",
+      last_name: "Fayed",
       address1: "9900 McNeil Drive",
-      address2: "",
       city: "Austin",
       province: "Texas",
       country: "United States",
@@ -150,13 +152,14 @@ export async function createServer(
       phone: "(512) 954-2355",
     };
     const testBillinginfo = {
-      last_name: "Adnan",
-      first_name: "Somani",
+      first_name: "Devteam",
+      last_name: "Fayed",
       address1: "9900 McNeil Drive",
       city: "Austin",
       province: "Texas",
       country: "United States",
       zip: "78750",
+      phone: "(512) 954-2355",
     };
     const testCheckoutCreateData = {
       line_items: [{ variant_id: 43493402902761, quantity: 2 }],
@@ -173,22 +176,22 @@ export async function createServer(
         brand: "visa",
         expiry_month: 8,
         expiry_year: 2028,
-        verification_value: "784",
+        verification_value: randomKey
       },
     };
-    const createdCheckout = await AdminRestApi.createCheckout(
+
+    const createdCheckout2 = await AdminRestApi.createCheckout(
       shop,
       accessToken,
       {
         checkout: testCheckoutCreateData,
       }
     );
-    const checkoutId = createdCheckout?.token;
+    const createdCheckout= await AdminRestApi.getCheckout(shop,accessToken,checkoutId);
+    const checkoutIdNew = createdCheckout?.token;
     const paymentUrl = createdCheckout?.payment_url;
-    if (!checkoutId)
-      return res.json({
-        createdCheckout,
-      });
+
+    if (!checkoutId)  return res.json({ createdCheckout});
     // const completeCheckout = await AdminRestApi.completeCheckout(shop,accessToken,createdCheckout?.token);
     const vaultSession = await AdminRestApi.createVaultSession(
       accessToken,
@@ -196,14 +199,51 @@ export async function createServer(
       creditCardDetails
     );
 
+    let shippingRates;
+    //poll
+    while(true){
+     shippingRates = await AdminRestApi.getShippingRates(shop,accessToken,checkoutId);
+     if(shippingRates?.shipping_rates.length > 0) break;
+    }
+
+    // const updatedCheckout = await AdminRestApi.updateCheckout(shop,accessToken,checkoutId,{checkout:{
+    //   token: checkoutId,
+    //   shipping_line: { "handle":shippingRates?.shipping_rates[0]?.handle },
+    // }})
+ 
+    const totalPrice=createdCheckout?.total_price;
     const vaultId = vaultSession?.id;
 
-    const checkoutData= await AdminRestApi.getCheckout(shop,accessToken,checkoutId);
+    const paymentData={
+      "payment":{
+         "request_details":{
+            "ip_address":"202.133.89.32",
+            "accept_language":"en-US,en;q=0.8,fr;q=0.6",
+            "user_agent":"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_12_1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/54.0.2840.98 Safari/537.36"
+         },
+         "amount": totalPrice,
+         "session_id": vaultId,
+         "unique_token": randomKey,
+      }
+   }
+
+    const vaultedCheckout = await AdminRestApi.completePayment(
+      shop,
+      accessToken,
+      checkoutId,
+      paymentData
+    );
+
+
+    // const checkoutData= await AdminRestApi.getCheckout(shop,accessToken,checkoutId);
+
 
     return res.json({
+      vaultedCheckout,
       vaultSession,
-      createdCheckout,
-      checkoutData,
+      shippingRates,
+      paymentData,
+
     });
   });
 
