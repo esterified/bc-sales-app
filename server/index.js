@@ -180,13 +180,13 @@ export async function createServer(
       },
     };
 
-    const createdCheckout2 = await AdminRestApi.createCheckout(
-      shop,
-      accessToken,
-      {
-        checkout: testCheckoutCreateData,
-      }
-    );
+    // const createdCheckout2 = await AdminRestApi.createCheckout(
+    //   shop,
+    //   accessToken,
+    //   {
+    //     checkout: testCheckoutCreateData,
+    //   }
+    // );
     const createdCheckout= await AdminRestApi.getCheckout(shop,accessToken,checkoutId);
     const checkoutIdNew = createdCheckout?.token;
     const paymentUrl = createdCheckout?.payment_url;
