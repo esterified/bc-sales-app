@@ -10,6 +10,7 @@ import { getShopifySessions } from "./helpers/get-shopify-access-token-manual.js
 import * as StorefrontApi from "./api/storefront.js";
 import * as AdminRestApi from "./api/admin-rest.js";
 import crypto from 'crypto';
+import { v4 as uuidv4 } from 'uuid';
 import applyAuthMiddleware from "./middleware/auth.js";
 import verifyRequest from "./middleware/verify-request.js";
 
@@ -130,7 +131,8 @@ export async function createServer(
 
   ///Payment ADMIN REST API
   app.get("/payment/rest", async (req, res, next) => {
-    const randomKey=crypto.randomBytes(64).toString('hex');
+    // let randomKey=crypto.randomBytes(64).toString('hex');
+    let randomKey=uuidv4();
     const session = await Shopify.Utils.loadOfflineSession(
       app.get("shopify-shop")
     );
@@ -174,9 +176,9 @@ export async function createServer(
         first_digits: "453641",
         last_digits: "9990",
         brand: "visa",
-        expiry_month: 8,
-        expiry_year: 2028,
-        verification_value: randomKey
+        expiry_month: "8",
+        expiry_year: "2028",
+        verification_value: "754",
       },
     };
 
@@ -216,8 +218,9 @@ export async function createServer(
 
     const paymentData={
       "payment":{
+         "token": checkoutId,
          "request_details":{
-            "ip_address":"202.133.89.32",
+            "ip_address":"3.13.191.225",
             "accept_language":"en-US,en;q=0.8,fr;q=0.6",
             "user_agent":"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_12_1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/54.0.2840.98 Safari/537.36"
          },
@@ -267,8 +270,8 @@ export async function createServer(
     if (!accessToken) return res.status(403).json("Access token not found");
 
     const testShippinginfo = {
-      lastName: "Fayed",
       firstName: "Devteam",
+      lastName: "Fayed",
       address1: "9900 McNeil Drive",
       address2: "",
       city: "Austin",
@@ -332,10 +335,10 @@ export async function createServer(
         first_digits: "453641",
         last_digits: "9990",
         brand: "visa",
-        expiry_month: 8,
-        expiry_year: 2028,
-        verification_value: "784",
-      }
+        expiry_month: "8",
+        expiry_year: "2028",
+        verification_value: "754",
+      },
     });
     
     console.log("vaultID-->>", vaultResponse);
